@@ -24,11 +24,17 @@ class Config:
     N = None  # Retention time dimension (columns)
     D = 32  # Paper default; larger values make latent covariance unstable
     RIP_CROP_ROWS = 10
-    ROI_INTENSITY_THRESHOLD = 0.02
-    ROI_MARGIN = 8
-    ROI_MIN_SIZE = 32
-    MAX_MODEL_ROWS = 768
-    MAX_MODEL_COLS = 256
+    ALIGN_RIP = True
+    CUT_RIP = True
+    RIP_SEARCH_FRACTION = (0.25, 0.55)
+    RIP_CUT_HALF_WIDTH = 28
+    ROI_INTENSITY_THRESHOLD = 0.04
+    ROI_BACKGROUND_PERCENTILE = 60
+    ROI_PROFILE_SMOOTH = 31
+    ROI_MARGIN = 64
+    ROI_MIN_SIZE = 128
+    MAX_MODEL_ROWS = 1024
+    MAX_MODEL_COLS = 512
     NORMALIZATION_METHOD = "log"
 
     NHEAD = 4  # Number of attention heads in transformer
@@ -41,6 +47,7 @@ class Config:
     NUM_EPOCHS = 150  # Increased to match paper (was 50)
     LEARNING_RATE = 0.0005
     PATIENCE = 20  # Increased patience for early stopping (was 5)
+    PEAK_LOSS_WEIGHT = 3.0
 
     # Encoding batch size (for faster encoding in encoder.py)
     ENCODING_BATCH_SIZE = 64  # Process this many sequences at once during encoding
@@ -82,8 +89,11 @@ def print_config():
     print(f"  Max epochs: {config.NUM_EPOCHS}")
     print(f"  Learning rate: {config.LEARNING_RATE}")
     print(f"  Early stopping patience: {config.PATIENCE}")
+    print(f"  Peak loss weight: {config.PEAK_LOSS_WEIGHT}")
     print(f"\nPreprocessing:")
     print(f"  Normalization: {config.NORMALIZATION_METHOD}")
+    print(f"  Align RIP: {config.ALIGN_RIP}")
+    print(f"  Cut RIP: {config.CUT_RIP}")
     print(f"  ROI threshold: {config.ROI_INTENSITY_THRESHOLD}")
     print(f"  ROI margin: {config.ROI_MARGIN}")
     print(f"  Max model shape: ({config.MAX_MODEL_ROWS}, {config.MAX_MODEL_COLS})")

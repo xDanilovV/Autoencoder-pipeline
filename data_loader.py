@@ -10,12 +10,19 @@ from config import config
 @dataclass
 class DatasetPreprocessor:
     method: str = "log"
+    align_rip: bool = True
+    cut_rip: bool = True
+    rip_search_fraction: tuple[float, float] | None = (0.25, 0.55)
+    rip_cut_half_width: int = 28
     roi_threshold: float = 0.02
+    roi_background_percentile: float = 60
+    roi_profile_smooth: int = 31
     roi_margin: int = 8
     roi_min_size: int = 32
     max_rows: int | None = None
     max_cols: int | None = None
     common_shape: tuple[int, int] | None = None
+    rip_target_col: int | None = None
     row_slice: tuple[int, int] | None = None
     col_slice: tuple[int, int] | None = None
     compressed_shape: tuple[int, int] | None = None
@@ -25,12 +32,13 @@ class DatasetPreprocessor:
     def fit(self, X: list[np.ndarray] | np.ndarray) -> "DatasetPreprocessor":
         matrices = [np.asarray(mat, dtype=np.float32) for mat in X]
         self._fit_common_shape(matrices)
+        self._fit_rip_alignment(matrices)
         self.row_slice, self.col_slice = self._fit_roi(matrices)
 
         mins = []
         maxes = []
         for mat in matrices:
-            common = center_crop_or_pad(mat, self.common_shape[0], self.common_shape[1])
+            common = self._prepare_common(mat)
             window = self._apply_window(common)
             window = self._compress(window)
             transformed = self._scale(window)
@@ -51,7 +59,7 @@ class DatasetPreprocessor:
         denom = max(self.global_max - self.global_min, 1e-8)
 
         for mat in X:
-            common = center_crop_or_pad(mat, self.common_shape[0], self.common_shape[1])
+            common = self._prepare_common(mat)
             window = self._apply_window(common)
             window = self._compress(window)
             transformed = self._scale(window)
@@ -83,25 +91,45 @@ class DatasetPreprocessor:
         min_cols = min(mat.shape[1] for mat in matrices)
         self.common_shape = (min_rows, min_cols)
 
+    def _fit_rip_alignment(self, X: list[np.ndarray] | np.ndarray) -> None:
+        if self.common_shape is None:
+            raise ValueError("Common shape must be fitted before RIP alignment.")
+
+        common_rows, common_cols = self.common_shape
+        rip_cols = []
+        for mat in X:
+            common = center_crop_or_pad(mat, common_rows, common_cols)
+            rip_cols.append(self._detect_rip_column(common))
+
+        if not rip_cols:
+            self.rip_target_col = common_cols // 2
+            return
+
+        self.rip_target_col = int(np.median(rip_cols))
+
     def _fit_roi(self, X: list[np.ndarray] | np.ndarray) -> tuple[tuple[int, int], tuple[int, int]]:
         common_rows, common_cols = self.common_shape
         reference = np.zeros((common_rows, common_cols), dtype=np.float32)
         count = 0
 
         for mat in X:
-            common = center_crop_or_pad(mat, common_rows, common_cols)
+            common = self._prepare_common(mat)
             reference += np.maximum(common, 0.0)
             count += 1
 
         reference /= max(count, 1)
+        reference = np.maximum(
+            reference - np.percentile(reference, self.roi_background_percentile),
+            0.0,
+        )
         max_intensity = float(reference.max())
 
         if max_intensity <= 0:
             self._set_compressed_shape(common_rows, common_cols)
             return (0, common_rows), (0, common_cols)
 
-        row_profile = reference.sum(axis=1)
-        col_profile = reference.sum(axis=0)
+        row_profile = smooth_profile(reference.sum(axis=1), self.roi_profile_smooth)
+        col_profile = smooth_profile(reference.sum(axis=0), self.roi_profile_smooth)
         row_active = row_profile >= (self.roi_threshold * float(row_profile.max()))
         col_active = col_profile >= (self.roi_threshold * float(col_profile.max()))
 
@@ -113,6 +141,41 @@ class DatasetPreprocessor:
         col_start, col_end = self._bounds_with_margin(col_active, common_cols)
         self._set_compressed_shape(row_end - row_start, col_end - col_start)
         return (row_start, row_end), (col_start, col_end)
+
+    def _prepare_common(self, mat: np.ndarray) -> np.ndarray:
+        if self.common_shape is None:
+            raise ValueError("DatasetPreprocessor must be fitted before preparing spectra.")
+
+        common = center_crop_or_pad(mat, self.common_shape[0], self.common_shape[1])
+        rip_col = self._detect_rip_column(common)
+
+        if self.align_rip and self.rip_target_col is not None:
+            common = shift_columns(common, self.rip_target_col - rip_col)
+            rip_col = self.rip_target_col
+
+        if self.cut_rip:
+            common = suppress_column_band(common, rip_col, self.rip_cut_half_width)
+
+        return common
+
+    def _detect_rip_column(self, mat: np.ndarray) -> int:
+        cols = mat.shape[1]
+        profile = np.percentile(np.abs(mat), 98, axis=0)
+        profile = smooth_profile(profile, self.roi_profile_smooth)
+
+        start, end = 0, cols
+        if self.rip_search_fraction is not None:
+            frac_start, frac_end = self.rip_search_fraction
+            start = int(np.clip(frac_start, 0.0, 1.0) * cols)
+            end = int(np.clip(frac_end, 0.0, 1.0) * cols)
+            if end <= start:
+                start, end = 0, cols
+
+        local = profile[start:end]
+        if local.size == 0 or not np.isfinite(local).any():
+            return cols // 2
+
+        return start + int(np.nanargmax(local))
 
     def _bounds_with_margin(self, active: np.ndarray, limit: int) -> tuple[int, int]:
         indices = np.where(active)[0]
@@ -223,7 +286,13 @@ def load_spectral_data(data_root, selected_classes=None, verbose=True):
 def build_preprocessor(X_train: list[np.ndarray] | np.ndarray, method: str = "log") -> DatasetPreprocessor:
     return DatasetPreprocessor(
         method=method,
+        align_rip=config.ALIGN_RIP,
+        cut_rip=config.CUT_RIP,
+        rip_search_fraction=config.RIP_SEARCH_FRACTION,
+        rip_cut_half_width=config.RIP_CUT_HALF_WIDTH,
         roi_threshold=config.ROI_INTENSITY_THRESHOLD,
+        roi_background_percentile=config.ROI_BACKGROUND_PERCENTILE,
+        roi_profile_smooth=config.ROI_PROFILE_SMOOTH,
         roi_margin=config.ROI_MARGIN,
         roi_min_size=config.ROI_MIN_SIZE,
         max_rows=config.MAX_MODEL_ROWS,
@@ -246,6 +315,71 @@ def center_crop_or_pad(mat, target_rows, target_cols):
         out_row_start:out_row_start + cropped.shape[0],
         out_col_start:out_col_start + cropped.shape[1],
     ] = cropped
+    return out
+
+
+def smooth_profile(profile, window):
+    profile = np.asarray(profile, dtype=np.float32)
+    window = int(window)
+    if window <= 1 or profile.size < 3:
+        return profile
+
+    window = min(window, profile.size)
+    if window % 2 == 0:
+        window -= 1
+    if window <= 1:
+        return profile
+
+    kernel = np.ones(window, dtype=np.float32) / float(window)
+    return np.convolve(profile, kernel, mode="same").astype(np.float32)
+
+
+def shift_columns(mat, shift):
+    mat = np.asarray(mat, dtype=np.float32)
+    shift = int(shift)
+    if shift == 0:
+        return mat.astype(np.float32, copy=True)
+
+    out = np.zeros_like(mat, dtype=np.float32)
+    if abs(shift) >= mat.shape[1]:
+        return out
+
+    if shift > 0:
+        out[:, shift:] = mat[:, :-shift]
+    else:
+        out[:, :shift] = mat[:, -shift:]
+    return out
+
+
+def suppress_column_band(mat, center_col, half_width):
+    mat = np.asarray(mat, dtype=np.float32)
+    out = mat.astype(np.float32, copy=True)
+    cols = out.shape[1]
+    center_col = int(np.clip(center_col, 0, cols - 1))
+    half_width = max(int(half_width), 0)
+    start = max(center_col - half_width, 0)
+    end = min(center_col + half_width + 1, cols)
+
+    if start >= end:
+        return out
+
+    if start == 0 and end >= cols:
+        out[:, :] = 0.0
+        return out
+
+    if start == 0:
+        fill = out[:, end:end + 1] if end < cols else np.zeros((out.shape[0], 1), dtype=np.float32)
+        out[:, start:end] = fill
+        return out
+
+    if end >= cols:
+        out[:, start:end] = out[:, start - 1:start]
+        return out
+
+    left = out[:, start - 1:start]
+    right = out[:, end:end + 1]
+    alpha = np.linspace(0.0, 1.0, end - start + 2, dtype=np.float32)[1:-1]
+    out[:, start:end] = left * (1.0 - alpha) + right * alpha
     return out
 
 

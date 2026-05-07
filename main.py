@@ -219,9 +219,12 @@ def main():
 
     print("\nTrain-fitted preprocessing:")
     print(f"  Common raw shape: {preprocessor.common_shape}")
+    print(f"  RIP target column: {preprocessor.rip_target_col}")
+    print(f"  RIP cut half-width: {preprocessor.rip_cut_half_width}")
     print(f"  Row window: {preprocessor.row_slice}")
     print(f"  Column window: {preprocessor.col_slice}")
     print(f"  Model input shape: ({config.M}, {config.N})")
+    plot_matrix(X_train[0], title="Preprocessed Training Spectrum")
 
     print("\nNormalized train statistics:")
     print(f"  Mean: {X_train.mean():.6f}")
@@ -306,6 +309,7 @@ def main():
         X_reconstructed=X_full_recon,
         sample_idx=0,
     )
+    plot_matrix(X_ae1_recon, title="AE1 Only Reconstruction")
 
     diff_full = np.abs(X_train[0] - X_full_recon)
     plot_matrix(diff_full, title="Full Pipeline Reconstruction Error")
