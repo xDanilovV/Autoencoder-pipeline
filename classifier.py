@@ -2,6 +2,9 @@
 Classification utilities for evaluating augmentation.
 """
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
@@ -75,7 +78,7 @@ def classify_spectra(
     plt.ylabel("Actual")
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/confusion_matrix.png", dpi=300)
-    plt.show()
+    plt.close()
 
     return {
         "accuracy": acc,

@@ -3,6 +3,9 @@ Utility functions for latent modeling and visualization.
 Includes improved covariance handling and sampling.
 """
 import numpy as np
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.covariance import LedoitWolf
@@ -19,7 +22,7 @@ def plot_matrix(matrix, title="Matrix Visualization", cmap='viridis'):
     plt.ylabel('Drift Time')
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/{title.replace(' ', '_')}.png", dpi=300)
-    plt.show()
+    plt.close()
 
 
 def plot_training_history(history, title="Training History"):
@@ -35,7 +38,7 @@ def plot_training_history(history, title="Training History"):
     plt.yscale('log')
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/{title.replace(' ', '_')}.png", dpi=300)
-    plt.show()
+    plt.close()
 
 
 def latent_stats_per_class(E, y):
@@ -214,7 +217,7 @@ def pca_real_vs_synthetic(X_real, X_synth, title="PCA: Real vs Synthetic"):
     plt.grid(True, alpha=0.3)
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/pca_comparison.png", dpi=300)
-    plt.show()
+    plt.close()
 
     print(f"\nPCA Analysis:")
     print(f"  PC1 variance explained: {pca.explained_variance_ratio_[0] * 100:.2f}%")
@@ -318,4 +321,4 @@ def diagnose_latent_quality(E_real, E_synth, y_real, y_synth):
 
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/latent_diagnostics.png", dpi=300)
-    plt.show()
+    plt.close(fig)

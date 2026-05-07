@@ -1,6 +1,9 @@
 """
 Visualization utilities for GC-IMS pipeline.
 """
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from typing import Dict
@@ -22,7 +25,7 @@ def plot_training_history(history: Dict, title: str):
     plt.tight_layout()
 
     plt.savefig(f"{config.RESULTS_PATH}/{title.replace(' ', '_')}.png", dpi=300)
-    plt.show()
+    plt.close()
 
 
 def plot_reconstruction_comparison(original: np.ndarray, reconstructed: np.ndarray, n_samples: int = 3):
@@ -45,7 +48,7 @@ def plot_reconstruction_comparison(original: np.ndarray, reconstructed: np.ndarr
 
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/reconstruction_comparison.png", dpi=300)
-    plt.show()
+    plt.close()
 
 
 def plot_synthetic_samples(X_synth: np.ndarray, y_synth: np.ndarray, label_encoder: LabelEncoder, n_samples: int = 6):
@@ -65,7 +68,7 @@ def plot_synthetic_samples(X_synth: np.ndarray, y_synth: np.ndarray, label_encod
 
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/synthetic_samples.png", dpi=300)
-    plt.show()
+    plt.close()
 
 def plot_real_vs_synth(X_real, X_synth, y_real, y_synth, label_encoder, n_samples=3):
 
@@ -96,7 +99,7 @@ def plot_real_vs_synth(X_real, X_synth, y_real, y_synth, label_encoder, n_sample
 
         plt.tight_layout()
         plt.savefig(f"{config.RESULTS_PATH}/real_vs_synth_{name}.png", dpi=300)
-        plt.show()
+        plt.close()
 
 def plot_pca_real_synth(E_real, E_synth, y_real, y_synth, label_encoder):
     """
@@ -129,4 +132,4 @@ def plot_pca_real_synth(E_real, E_synth, y_real, y_synth, label_encoder):
     plt.grid(True)
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/pca_real_vs_synth.png", dpi=300)
-    plt.show()
+    plt.close()

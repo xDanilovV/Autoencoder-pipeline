@@ -2,6 +2,9 @@
 Enhanced visualization utilities for debugging the GC-IMS pipeline.
 Add these functions to your utils.py or create a new file.
 """
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 from config import config
@@ -56,7 +59,7 @@ def plot_spectra_grid(matrices, titles, suptitle="Spectra Comparison", n_cols=3,
 
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/{suptitle.replace(' ', '_')}.png", dpi=300, bbox_inches='tight')
-    plt.show()
+    plt.close(fig)
 
 
 def plot_pipeline_visualization(X_original, Z_encoded, Z_decoded, X_reconstructed, sample_idx=0):
@@ -103,7 +106,7 @@ def plot_pipeline_visualization(X_original, Z_encoded, Z_decoded, X_reconstructe
 
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/pipeline_viz_sample_{sample_idx}.png", dpi=300, bbox_inches='tight')
-    plt.show()
+    plt.close(fig)
 
 
 def plot_real_vs_synthetic_comparison(X_real, X_synth, y_real, y_synth, n_samples_per_class=3):
@@ -168,7 +171,7 @@ def plot_real_vs_synthetic_comparison(X_real, X_synth, y_real, y_synth, n_sample
 
         plt.tight_layout()
         plt.savefig(f"{config.RESULTS_PATH}/real_vs_synth_class_{cls}.png", dpi=300, bbox_inches='tight')
-        plt.show()
+        plt.close(fig)
 
 
 def plot_intensity_distributions(X_real, X_synth, title="Intensity Distribution Comparison"):
@@ -212,4 +215,4 @@ def plot_intensity_distributions(X_real, X_synth, title="Intensity Distribution 
     plt.suptitle(title, fontsize=14)
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/intensity_distributions.png", dpi=300, bbox_inches='tight')
-    plt.show()
+    plt.close(fig)

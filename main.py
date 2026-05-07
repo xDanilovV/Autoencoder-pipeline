@@ -7,6 +7,9 @@ Data flow:
 """
 import math
 
+import matplotlib
+
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -183,7 +186,7 @@ def plot_orientation_check(sample):
     plt.colorbar(im, ax=ax, label="Intensity")
     plt.tight_layout()
     plt.savefig(f"{config.RESULTS_PATH}/dimension_verification.png", dpi=300)
-    plt.show()
+    plt.close(fig)
 
 
 def main():
