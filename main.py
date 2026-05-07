@@ -23,6 +23,7 @@ from data_loader import (
     build_preprocessor,
     load_spectral_data,
     match_synthetic_to_real_distribution,
+    resize_mean,
 )
 from dataset import (
     TimeseriesDataset,
@@ -178,6 +179,13 @@ def synthetic_count_per_class(y_train):
 
 
 def plot_orientation_check(sample):
+    max_pixels = int(config.RAW_ORIENTATION_MAX_PIXELS)
+    if max(sample.shape) > max_pixels:
+        scale = max_pixels / max(sample.shape)
+        target_rows = max(1, int(sample.shape[0] * scale))
+        target_cols = max(1, int(sample.shape[1] * scale))
+        sample = resize_mean(sample, target_rows, target_cols)
+
     fig, ax = plt.subplots(figsize=(12, 6))
     im = ax.imshow(sample, aspect="auto", cmap="viridis", origin="lower")
     ax.set_xlabel("Retention Time (GC)")
@@ -205,7 +213,9 @@ def main():
     )
 
     print(f"\nLoaded {len(X_raw)} spectra")
-    plot_orientation_check(X_raw[0])
+    if config.SAVE_RAW_ORIENTATION_PLOT:
+        print("Saving downsampled raw orientation diagnostic...", flush=True)
+        plot_orientation_check(X_raw[0])
 
     X_train_raw, X_val_raw, y_train, y_val = train_test_split(
         X_raw,
@@ -215,7 +225,9 @@ def main():
         random_state=config.SEED,
     )
 
+    print("Fitting train-only preprocessing window...", flush=True)
     preprocessor = build_preprocessor(X_train_raw, method=config.NORMALIZATION_METHOD)
+    print("Transforming train/validation spectra...", flush=True)
     X_train = preprocessor.transform(X_train_raw)
     X_val = preprocessor.transform(X_val_raw)
     config.M, config.N = X_train.shape[1], X_train.shape[2]

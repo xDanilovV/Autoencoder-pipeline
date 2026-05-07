@@ -36,6 +36,8 @@ class Config:
     MAX_MODEL_ROWS = 1024
     MAX_MODEL_COLS = 512
     NORMALIZATION_METHOD = "log"
+    SAVE_RAW_ORIENTATION_PLOT = False
+    RAW_ORIENTATION_MAX_PIXELS = 1200
 
     NHEAD = 4  # Number of attention heads in transformer
     NUM_LAYERS = 2  # Number of transformer layers
