@@ -14,6 +14,7 @@ class DatasetPreprocessor:
     cut_rip: bool = True
     rip_search_fraction: tuple[float, float] | None = (0.25, 0.55)
     rip_cut_half_width: int = 28
+    rip_detection_max_rows: int = 1024
     roi_threshold: float = 0.02
     roi_background_percentile: float = 60
     roi_profile_smooth: int = 31
@@ -28,6 +29,7 @@ class DatasetPreprocessor:
     compressed_shape: tuple[int, int] | None = None
     global_min: float | None = None
     global_max: float | None = None
+    progress_interval: int = 25
 
     def fit(self, X: list[np.ndarray] | np.ndarray) -> "DatasetPreprocessor":
         matrices = [np.asarray(mat, dtype=np.float32) for mat in X]
@@ -37,13 +39,16 @@ class DatasetPreprocessor:
 
         mins = []
         maxes = []
-        for mat in matrices:
+        total = len(matrices)
+        print("  Measuring preprocessing scale...", flush=True)
+        for idx, mat in enumerate(matrices, start=1):
             common = self._prepare_common(mat)
             window = self._apply_window(common)
             window = self._compress(window)
             transformed = self._scale(window)
             mins.append(float(transformed.min()))
             maxes.append(float(transformed.max()))
+            self._print_progress("scale", idx, total)
 
         self.global_min = min(mins)
         self.global_max = max(maxes)
@@ -57,14 +62,16 @@ class DatasetPreprocessor:
 
         transformed_list = []
         denom = max(self.global_max - self.global_min, 1e-8)
+        total = len(X)
 
-        for mat in X:
+        for idx, mat in enumerate(X, start=1):
             common = self._prepare_common(mat)
             window = self._apply_window(common)
             window = self._compress(window)
             transformed = self._scale(window)
             transformed = (transformed - self.global_min) / denom
             transformed_list.append(np.clip(transformed, 0.0, 1.0).astype(np.float32))
+            self._print_progress("transform", idx, total)
 
         return np.stack(transformed_list, axis=0)
 
@@ -97,9 +104,12 @@ class DatasetPreprocessor:
 
         common_rows, common_cols = self.common_shape
         rip_cols = []
-        for mat in X:
+        total = len(X)
+        print("  Detecting RIP columns...", flush=True)
+        for idx, mat in enumerate(X, start=1):
             common = center_crop_or_pad(mat, common_rows, common_cols)
             rip_cols.append(self._detect_rip_column(common))
+            self._print_progress("rip", idx, total)
 
         if not rip_cols:
             self.rip_target_col = common_cols // 2
@@ -112,10 +122,13 @@ class DatasetPreprocessor:
         reference = np.zeros((common_rows, common_cols), dtype=np.float32)
         count = 0
 
-        for mat in X:
+        total = len(X)
+        print("  Building aligned ROI reference...", flush=True)
+        for idx, mat in enumerate(X, start=1):
             common = self._prepare_common(mat)
             reference += np.maximum(common, 0.0)
             count += 1
+            self._print_progress("roi", idx, total)
 
         reference /= max(count, 1)
         reference = np.maximum(
@@ -142,6 +155,11 @@ class DatasetPreprocessor:
         self._set_compressed_shape(row_end - row_start, col_end - col_start)
         return (row_start, row_end), (col_start, col_end)
 
+    def _print_progress(self, stage: str, idx: int, total: int) -> None:
+        interval = max(int(self.progress_interval), 1)
+        if idx == 1 or idx == total or idx % interval == 0:
+            print(f"    {stage}: {idx}/{total}", flush=True)
+
     def _prepare_common(self, mat: np.ndarray) -> np.ndarray:
         if self.common_shape is None:
             raise ValueError("DatasetPreprocessor must be fitted before preparing spectra.")
@@ -160,7 +178,9 @@ class DatasetPreprocessor:
 
     def _detect_rip_column(self, mat: np.ndarray) -> int:
         cols = mat.shape[1]
-        profile = np.percentile(np.abs(mat), 98, axis=0)
+        stride = max(mat.shape[0] // max(int(self.rip_detection_max_rows), 1), 1)
+        sampled = mat[::stride]
+        profile = np.mean(np.abs(sampled), axis=0)
         profile = smooth_profile(profile, self.roi_profile_smooth)
 
         start, end = 0, cols
@@ -290,6 +310,7 @@ def build_preprocessor(X_train: list[np.ndarray] | np.ndarray, method: str = "lo
         cut_rip=config.CUT_RIP,
         rip_search_fraction=config.RIP_SEARCH_FRACTION,
         rip_cut_half_width=config.RIP_CUT_HALF_WIDTH,
+        rip_detection_max_rows=config.RIP_DETECTION_MAX_ROWS,
         roi_threshold=config.ROI_INTENSITY_THRESHOLD,
         roi_background_percentile=config.ROI_BACKGROUND_PERCENTILE,
         roi_profile_smooth=config.ROI_PROFILE_SMOOTH,
@@ -297,12 +318,15 @@ def build_preprocessor(X_train: list[np.ndarray] | np.ndarray, method: str = "lo
         roi_min_size=config.ROI_MIN_SIZE,
         max_rows=config.MAX_MODEL_ROWS,
         max_cols=config.MAX_MODEL_COLS,
+        progress_interval=config.PREPROCESS_PROGRESS_INTERVAL,
     ).fit(X_train)
 
 
 def center_crop_or_pad(mat, target_rows, target_cols):
     mat = np.asarray(mat, dtype=np.float32)
     rows, cols = mat.shape
+    if rows == target_rows and cols == target_cols:
+        return mat.astype(np.float32, copy=False)
 
     row_start = max((rows - target_rows) // 2, 0)
     col_start = max((cols - target_cols) // 2, 0)

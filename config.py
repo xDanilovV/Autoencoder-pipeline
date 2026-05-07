@@ -28,6 +28,7 @@ class Config:
     CUT_RIP = True
     RIP_SEARCH_FRACTION = (0.25, 0.55)
     RIP_CUT_HALF_WIDTH = 28
+    RIP_DETECTION_MAX_ROWS = 1024
     ROI_INTENSITY_THRESHOLD = 0.04
     ROI_BACKGROUND_PERCENTILE = 60
     ROI_PROFILE_SMOOTH = 31
@@ -38,6 +39,7 @@ class Config:
     NORMALIZATION_METHOD = "log"
     SAVE_RAW_ORIENTATION_PLOT = False
     RAW_ORIENTATION_MAX_PIXELS = 1200
+    PREPROCESS_PROGRESS_INTERVAL = 25
 
     NHEAD = 4  # Number of attention heads in transformer
     NUM_LAYERS = 2  # Number of transformer layers
