@@ -1,0 +1,12 @@
+--extra-index-url https://download.pytorch.org/whl/cu118
+
+torch==2.7.1+cu118
+numpy==2.2.6
+scipy==1.16.3
+scikit-learn==1.7.2
+matplotlib==3.10.7
+seaborn==0.13.2
+tqdm==4.67.1
+pandas==2.3.3
+gc-ims-tools==0.1.7
+pypdf==6.9.2
