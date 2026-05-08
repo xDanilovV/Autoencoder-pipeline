@@ -18,7 +18,7 @@ class Config:
     MODEL_PATH.mkdir(exist_ok=True, parents=True)
 
     # Data split
-    SEED = 137
+    SEED = 271
     TRAIN_SPLIT = 0.85
     M = None  # Drift time dimension (rows)
     N = None  # Retention time dimension (columns)
@@ -69,6 +69,12 @@ class Config:
 
     # Post-processing
     MATCH_SYNTHETIC_DISTRIBUTION = False  # Avoid washing out class-specific synthetic structure
+
+    # Spectral similarity diagnostics
+    SPECTRAL_METRIC_PCA_COMPONENTS = 50
+    SPECTRAL_METRIC_MAX_PIXELS = 20000
+    SPECTRAL_METRIC_PEAK_PERCENTILE = 99.5
+    SPECTRAL_METRIC_PEAK_MIN_THRESHOLD = 0.05
 
 
 config = Config()

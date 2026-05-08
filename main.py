@@ -34,6 +34,7 @@ from dataset import (
 )
 from gcims_debug_viz import plot_pipeline_visualization
 from models import TransformerAutoencoder
+from spectra_metrics import evaluate_spectral_similarity
 from trainer import train_autoencoder
 from utils import (
     diagnose_latent_quality,
@@ -443,6 +444,16 @@ def main():
         E_real=E_train,
         E_synth=synth_latent,
         y_real=np.asarray(y_train),
+        y_synth=np.asarray(synth_labels),
+    )
+
+    print("\nEvaluating spectral similarity diagnostics")
+    evaluate_spectral_similarity(
+        X_train=X_train,
+        y_train=y_train,
+        X_val=X_val,
+        y_val=y_val,
+        X_synth=X_synth,
         y_synth=np.asarray(synth_labels),
     )
 
