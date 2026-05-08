@@ -9,18 +9,29 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
+from sklearn.metrics import (
+    accuracy_score,
+    balanced_accuracy_score,
+    classification_report,
+    cohen_kappa_score,
+    confusion_matrix,
+    f1_score,
+    matthews_corrcoef,
+    precision_score,
+    recall_score,
+)
 from sklearn.preprocessing import LabelEncoder
 from config import config
 
-SEED = 42
+SEED = config.SEED
 
 
 def classify_spectra(
     X_train: np.ndarray, y_train: np.ndarray,
     X_test: np.ndarray, y_test: np.ndarray,
     label_encoder: LabelEncoder,
-    n_components: int | None = None
+    n_components: int | None = None,
+    run_name: str = "classifier",
 ):
     """
     Baseline classifier to evaluate augmentation.
@@ -60,10 +71,15 @@ def classify_spectra(
     y_pred = clf.predict(X_test_pca)
 
     # Metrics
-    acc = accuracy_score(y_test, y_pred)
-    print("\nAccuracy:", acc)
+    metrics = compute_classification_metrics(y_test, y_pred)
+    print("\nAccuracy:", metrics["accuracy"])
     print("\nClassification Report:")
-    print(classification_report(y_test, y_pred, target_names=label_encoder.classes_))
+    print(classification_report(
+        y_test,
+        y_pred,
+        target_names=label_encoder.classes_,
+        zero_division=0,
+    ))
 
     # Confusion Matrix
     cm = confusion_matrix(y_test, y_pred)
@@ -77,13 +93,39 @@ def classify_spectra(
     plt.xlabel("Predicted")
     plt.ylabel("Actual")
     plt.tight_layout()
-    plt.savefig(f"{config.RESULTS_PATH}/confusion_matrix.png", dpi=300)
+    plt.savefig(f"{config.RESULTS_PATH}/confusion_matrix_{safe_filename(run_name)}.png", dpi=300)
     plt.close()
 
+    metrics.update({
+        "pca_components": int(n_components),
+        "pca_explained_variance": float(np.sum(pca.explained_variance_ratio_)),
+        "train_samples": int(len(X_train)),
+        "test_samples": int(len(X_test)),
+    })
+
     return {
-        "accuracy": acc,
+        **metrics,
         "predictions": y_pred,
         "confusion_matrix": cm,
         "pca": pca,
         "classifier": clf
     }
+
+
+def compute_classification_metrics(y_true, y_pred):
+    return {
+        "accuracy": float(accuracy_score(y_true, y_pred)),
+        "balanced_accuracy": float(balanced_accuracy_score(y_true, y_pred)),
+        "macro_precision": float(precision_score(y_true, y_pred, average="macro", zero_division=0)),
+        "macro_recall": float(recall_score(y_true, y_pred, average="macro", zero_division=0)),
+        "macro_f1": float(f1_score(y_true, y_pred, average="macro", zero_division=0)),
+        "weighted_precision": float(precision_score(y_true, y_pred, average="weighted", zero_division=0)),
+        "weighted_recall": float(recall_score(y_true, y_pred, average="weighted", zero_division=0)),
+        "weighted_f1": float(f1_score(y_true, y_pred, average="weighted", zero_division=0)),
+        "mcc": float(matthews_corrcoef(y_true, y_pred)),
+        "cohen_kappa": float(cohen_kappa_score(y_true, y_pred)),
+    }
+
+
+def safe_filename(name):
+    return "".join(char if char.isalnum() else "_" for char in name).strip("_").lower()

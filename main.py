@@ -12,6 +12,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
@@ -197,6 +198,61 @@ def plot_orientation_check(sample):
     plt.close(fig)
 
 
+def add_result_row(rows, scenario, train_data, test_data, result):
+    rows.append({
+        "scenario": scenario,
+        "train_data": train_data,
+        "test_data": test_data,
+        "train_samples": result["train_samples"],
+        "test_samples": result["test_samples"],
+        "accuracy": result["accuracy"],
+        "balanced_accuracy": result["balanced_accuracy"],
+        "macro_precision": result["macro_precision"],
+        "macro_recall": result["macro_recall"],
+        "macro_f1": result["macro_f1"],
+        "weighted_precision": result["weighted_precision"],
+        "weighted_recall": result["weighted_recall"],
+        "weighted_f1": result["weighted_f1"],
+        "mcc": result["mcc"],
+        "cohen_kappa": result["cohen_kappa"],
+        "pca_components": result["pca_components"],
+        "pca_explained_variance": result["pca_explained_variance"],
+    })
+
+
+def save_evaluation_table(rows):
+    table = pd.DataFrame(rows)
+    csv_path = config.RESULTS_PATH / "classifier_evaluation_table.csv"
+    md_path = config.RESULTS_PATH / "classifier_evaluation_table.md"
+
+    table.to_csv(csv_path, index=False)
+    write_markdown_table(table, md_path)
+
+    print("\nSaved classifier evaluation table:")
+    print(f"  CSV: {csv_path}")
+    print(f"  Markdown: {md_path}")
+    print(table.to_string(index=False))
+
+
+def write_markdown_table(table, path):
+    columns = list(table.columns)
+    lines = [
+        "| " + " | ".join(columns) + " |",
+        "| " + " | ".join(["---"] * len(columns)) + " |",
+    ]
+
+    for _, row in table.iterrows():
+        values = []
+        for col in columns:
+            value = row[col]
+            if isinstance(value, float):
+                value = f"{value:.4f}"
+            values.append(str(value))
+        lines.append("| " + " | ".join(values) + " |")
+
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
 def main():
     set_random_seeds()
 
@@ -376,23 +432,69 @@ def main():
 
     synth_labels_encoded = le.transform(synth_labels)
 
-    print("\nBaseline classifier (real only)")
-    baseline = classify_spectra(X_train, y_train_encoded, X_val, y_val_encoded, le)
+    evaluation_rows = []
 
-    print("\nAugmented classifier (real + synthetic)")
+    print("\nScenario 1: train 80% real, test 20% real")
+    baseline = classify_spectra(
+        X_train,
+        y_train_encoded,
+        X_val,
+        y_val_encoded,
+        le,
+        run_name="scenario_1_train_real_test_real",
+    )
+    add_result_row(
+        evaluation_rows,
+        scenario="1",
+        train_data="80% real",
+        test_data="20% real",
+        result=baseline,
+    )
+
+    print("\nScenario 2: train 80% real + 100% synthetic, test 20% real")
     augmented = classify_spectra(
         np.concatenate([X_train, X_synth], axis=0),
         np.concatenate([y_train_encoded, synth_labels_encoded], axis=0),
         X_val,
         y_val_encoded,
         le,
+        run_name="scenario_2_train_real_synthetic_test_real",
     )
+    add_result_row(
+        evaluation_rows,
+        scenario="2",
+        train_data="80% real + 100% synthetic",
+        test_data="20% real",
+        result=augmented,
+    )
+
+    print("\nScenario 3: train 100% real, test 100% synthetic")
+    real_all = np.concatenate([X_train, X_val], axis=0)
+    real_all_labels = np.concatenate([y_train_encoded, y_val_encoded], axis=0)
+    real_to_synth = classify_spectra(
+        real_all,
+        real_all_labels,
+        X_synth,
+        synth_labels_encoded,
+        le,
+        run_name="scenario_3_train_real_test_synthetic",
+    )
+    add_result_row(
+        evaluation_rows,
+        scenario="3",
+        train_data="100% real",
+        test_data="100% synthetic",
+        result=real_to_synth,
+    )
+
+    save_evaluation_table(evaluation_rows)
 
     print("\n" + "=" * 60)
     print("FINAL RESULTS")
     print("=" * 60)
     print(f"Baseline Accuracy:   {baseline['accuracy']:.4f}")
     print(f"Augmented Accuracy:  {augmented['accuracy']:.4f}")
+    print(f"Real -> Synthetic:   {real_to_synth['accuracy']:.4f}")
     print(f"Improvement:         {augmented['accuracy'] - baseline['accuracy']:.4f}")
     print("=" * 60)
 
