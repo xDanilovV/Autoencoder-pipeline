@@ -89,10 +89,10 @@ def train_autoencoder(
             wait += 1
 
         if wait >= patience:
-            print(f"Early stopping at epoch {epoch}")
+            print(f"Early stopping at epoch {epoch}", flush=True)
             break
 
-        print(f"Epoch {epoch}/{num_epochs} - train={train_loss:.6f}, val={val_loss:.6f}")
+        print(f"Epoch {epoch}/{num_epochs} - train={train_loss:.6f}, val={val_loss:.6f}", flush=True)
 
     model.load_state_dict(torch.load(f"{config.MODEL_PATH}/{model_name}_best.pt"))
 

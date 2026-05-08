@@ -6,6 +6,7 @@ Data flow:
     E (D, D) -> [AE2 decode] -> Z (D, N) -> [AE1 decode] -> X (M, N)
 """
 import math
+import sys
 
 import matplotlib
 
@@ -41,6 +42,9 @@ from utils import (
     plot_training_history,
     sample_latent_vectors,
 )
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(line_buffering=True)
 
 
 def undersample_rows(rows, prob, rng=None):
@@ -295,6 +299,7 @@ def main():
     print(f"  Row window: {preprocessor.row_slice}")
     print(f"  Column window: {preprocessor.col_slice}")
     print(f"  Model input shape: ({config.M}, {config.N})")
+    print("Saving preprocessed spectrum diagnostic...")
     plot_matrix(X_train[0], title="Preprocessed Training Spectrum")
 
     print("\nNormalized train statistics:")
@@ -311,6 +316,7 @@ def main():
     y_val_encoded = le.transform(y_val)
 
     print("\nTraining AE1 (column autoencoder)")
+    print("Extracting AE1 column time-series...")
     train_cols = undersample_rows(
         extract_columns_as_timeseries(X_train),
         prob=config.UNDERSAMPLE_PROB,
@@ -319,8 +325,12 @@ def main():
     val_cols = extract_columns_as_timeseries(X_val)
     if config.UNDERSAMPLE_VALIDATION:
         val_cols = undersample_rows(val_cols, prob=config.UNDERSAMPLE_PROB, rng=rng)
+    print(f"  AE1 train series: {train_cols.shape}")
+    print(f"  AE1 val series:   {val_cols.shape}")
 
+    print("Building AE1 model and loaders...")
     AE1 = build_autoencoder(config.M)
+    print("Starting AE1 optimization...")
     hist1 = train_autoencoder(
         AE1,
         build_loader(train_cols, shuffle=True),
@@ -332,11 +342,13 @@ def main():
     )
     plot_training_history(hist1, "AE1_Training_Curve")
 
+    print("Encoding train/validation spectra with AE1...")
     Z_train_raw = encode_matrix(AE1, X_train)
     Z_val_raw = encode_matrix(AE1, X_val)
     Z_train, Z_val, z_norm_params = standardize_latent(Z_train_raw, Z_val_raw)
 
     print("\nTraining AE2 (row autoencoder)")
+    print("Extracting AE2 row time-series...")
     train_rows = undersample_rows(
         extract_rows_as_timeseries(Z_train),
         prob=config.UNDERSAMPLE_PROB,
@@ -345,8 +357,12 @@ def main():
     val_rows = extract_rows_as_timeseries(Z_val)
     if config.UNDERSAMPLE_VALIDATION:
         val_rows = undersample_rows(val_rows, prob=config.UNDERSAMPLE_PROB, rng=rng)
+    print(f"  AE2 train series: {train_rows.shape}")
+    print(f"  AE2 val series:   {val_rows.shape}")
 
+    print("Building AE2 model and loaders...")
     AE2 = build_autoencoder(config.N)
+    print("Starting AE2 optimization...")
     hist2 = train_autoencoder(
         AE2,
         build_loader(train_rows, shuffle=True),
