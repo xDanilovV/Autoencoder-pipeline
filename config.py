@@ -65,10 +65,10 @@ class Config:
     SAMPLING_METHOD = "shrinkage"
     PCA_COMPONENTS = 0.99
     SYNTHETIC_MULTIPLIER = 1.0  # 1.0 doubles each class, matching the paper
-    SYNTHETIC_STD_SCALE = 0.75  # Temper latent variability to avoid noisy samples
+    SYNTHETIC_STD_SCALE = 0.25  # Conservative Gaussian radius for small class sample counts
 
     # Post-processing
-    MATCH_SYNTHETIC_DISTRIBUTION = True  # Adjust synthetic to match real distribution
+    MATCH_SYNTHETIC_DISTRIBUTION = False  # Avoid washing out class-specific synthetic structure
 
 
 config = Config()
