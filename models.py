@@ -1,16 +1,11 @@
-"""
-Neural network models for GC-IMS pipeline.
-"""
+"""Neural network models for the GC-IMS autoencoder pipeline."""
+import numpy as np
 import torch
 import torch.nn as nn
-import numpy as np
 
 
 class PositionalEncoding(nn.Module):
-    """
-    Standard sinusoidal positional encoding.
-    Injects sequence index info into transformer inputs.
-    """
+    """Sinusoidal positional encoding for sequence indices."""
 
     def __init__(self, d_model: int, max_len: int = 5000):
         super().__init__()
@@ -27,27 +22,12 @@ class PositionalEncoding(nn.Module):
         self.register_buffer("pe", pe)
 
     def forward(self, x):
-        """
-        Args:
-            x: (batch, seq_len, d_model)
-        Returns:
-            x + positional encoding
-        """
         seq_len = x.size(1)
         return x + self.pe[:seq_len].transpose(0, 1)
 
 
 class TransformerAutoencoder(nn.Module):
-    """
-    Transformer autoencoder for 1D timeseries.
-
-    Encoder:
-        Input (batch, seq_len) → Linear → TransformerEncoder → Flatten → FC → latent
-
-    Decoder:
-        latent → FC_expand → (batch, seq_len, dim_feedforward)
-               → TransformerDecoder → Linear → (batch, seq_len)
-    """
+    """Transformer autoencoder for 1D spectra/time-series."""
 
     def __init__(
         self,
@@ -56,7 +36,7 @@ class TransformerAutoencoder(nn.Module):
         nhead: int = 4,
         num_layers: int = 2,
         dim_feedforward: int = 128,
-        dropout: float = 0.1
+        dropout: float = 0.1,
     ):
         super().__init__()
 
@@ -64,62 +44,52 @@ class TransformerAutoencoder(nn.Module):
         self.latent_dim = latent_dim
         self.dim_feedforward = dim_feedforward
 
-        # === Input embedding ===
         self.input_embedding = nn.Linear(1, dim_feedforward)
         self.positional_encoding = PositionalEncoding(dim_feedforward, max_len=input_dim)
 
-        # === Encoder transformer ===
         encoder_layer = nn.TransformerEncoderLayer(
             d_model=dim_feedforward,
             nhead=nhead,
             dim_feedforward=dim_feedforward,
             dropout=dropout,
-            batch_first=True
+            batch_first=True,
         )
         self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=num_layers)
 
-        # === Latent bottleneck ===
         self.encoder_fc = nn.Linear(dim_feedforward * input_dim, latent_dim)
         self.decoder_fc = nn.Linear(latent_dim, dim_feedforward * input_dim)
 
-        # === Decoder transformer ===
-        decoder_layer = nn.TransformerDecoderLayer(
+        # The latent vector is expanded into a full sequence, so reconstruction
+        # only needs self-attention. A TransformerDecoder requires a separate
+        # memory tensor; using the same tensor as target and memory can produce
+        # repeated template-like bands instead of faithful local reconstruction.
+        decoder_layer = nn.TransformerEncoderLayer(
             d_model=dim_feedforward,
             nhead=nhead,
             dim_feedforward=dim_feedforward,
             dropout=dropout,
-            batch_first=True
+            batch_first=True,
         )
-        self.transformer_decoder = nn.TransformerDecoder(decoder_layer, num_layers=num_layers)
+        self.transformer_decoder = nn.TransformerEncoder(decoder_layer, num_layers=num_layers)
 
-        # Output projection
         self.output_layer = nn.Linear(dim_feedforward, 1)
 
     def encode(self, x):
         batch = x.size(0)
-
-        x = x.unsqueeze(-1)  # → (batch, seq_len, 1)
-        x = self.input_embedding(x)  # → (batch, seq_len, dim_feedforward)
-
+        x = x.unsqueeze(-1)
+        x = self.input_embedding(x)
         x = self.positional_encoding(x)
-
-        enc = self.transformer_encoder(x)  # → (batch, seq_len, dim_feedforward)
-
-        flat = enc.reshape(batch, -1)  # → (batch, seq_len * dim_feedforward)
-        latent = self.encoder_fc(flat)  # → (batch, latent_dim)
-        return latent
+        enc = self.transformer_encoder(x)
+        flat = enc.reshape(batch, -1)
+        return self.encoder_fc(flat)
 
     def decode(self, z):
         batch = z.size(0)
-
-        x = self.decoder_fc(z)  # → (batch, seq_len*dim_feedforward)
+        x = self.decoder_fc(z)
         x = x.reshape(batch, self.input_dim, self.dim_feedforward)
-
-        # Using self-memory for now (auto-regressive dec not needed)
-        dec = self.transformer_decoder(x, x)
-
-        out = self.output_layer(dec).squeeze(-1)  # → (batch, seq_len)
-        return out
+        x = self.positional_encoding(x)
+        dec = self.transformer_decoder(x)
+        return self.output_layer(dec).squeeze(-1)
 
     def forward(self, x):
         z = self.encode(x)

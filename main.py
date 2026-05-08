@@ -143,6 +143,14 @@ def reconstruct_sample(AE1, AE2, X_sample, Z_sample, E_sample, z_norm_params):
     return X_ae1_recon, Z_ae2_recon, X_full_recon
 
 
+def reconstruct_ae1_forward(AE1, X_sample):
+    AE1.eval()
+    with torch.no_grad():
+        cols = torch.tensor(X_sample.T, dtype=torch.float32, device=config.DEVICE)
+        recon, _ = AE1(cols)
+    return recon.cpu().numpy().T
+
+
 def decode_synthetic(AE2, AE1, latent_mats, z_norm_params, verbose=False):
     AE1.eval()
     AE2.eval()
@@ -390,6 +398,12 @@ def main():
         E_train_raw[0],
         z_norm_params,
     )
+    X_ae1_forward = reconstruct_ae1_forward(AE1, X_train[0])
+    ae1_path_error = np.abs(X_ae1_forward - X_ae1_recon)
+    print(
+        "AE1 path consistency max abs diff: "
+        f"{ae1_path_error.max():.8f}, mean abs diff: {ae1_path_error.mean():.8f}"
+    )
     plot_pipeline_visualization(
         X_original=X_train[0],
         Z_encoded=Z_train_raw[0],
@@ -398,6 +412,7 @@ def main():
         sample_idx=0,
     )
     plot_matrix(X_ae1_recon, title="AE1 Only Reconstruction")
+    plot_matrix(ae1_path_error, title="AE1 Path Consistency Error")
 
     diff_full = np.abs(X_train[0] - X_full_recon)
     plot_matrix(diff_full, title="Full Pipeline Reconstruction Error")
