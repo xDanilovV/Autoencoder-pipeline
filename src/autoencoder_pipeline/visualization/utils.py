@@ -9,7 +9,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from sklearn.decomposition import PCA
 from sklearn.covariance import LedoitWolf
-from config import config
+from autoencoder_pipeline.config import config
 
 
 def plot_matrix(matrix, title="Matrix Visualization", cmap='viridis'):

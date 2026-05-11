@@ -2,8 +2,8 @@
 import numpy as np
 from sklearn.preprocessing import LabelEncoder
 
-from config import config
-from utils import latent_stats_per_class, sample_latent_vectors
+from autoencoder_pipeline.config import config
+from autoencoder_pipeline.visualization.utils import latent_stats_per_class, sample_latent_vectors
 
 
 def generate_synthetic_latent_matrices(

@@ -4,7 +4,7 @@ Encoding and decoding utilities with batching for performance.
 import torch
 import numpy as np
 from tqdm.auto import tqdm
-from config import config
+from autoencoder_pipeline.config import config
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

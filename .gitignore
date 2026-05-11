@@ -2,11 +2,33 @@
 .idea/
 __pycache__/
 *.py[cod]
+*.egg-info/
+build/
+dist/
+*.log
 
-data/
+# Large and generated data are intentionally kept out of git.
+data/*
+!data/.gitkeep
+!data/raw/
+data/raw/*
+!data/raw/.gitkeep
+!data/interim/
+data/interim/*
+!data/interim/.gitkeep
+!data/processed/
+data/processed/*
+!data/processed/.gitkeep
+!data/external/
+data/external/*
+!data/external/.gitkeep
 data_fermentation/
-models/
+
+# Trained weights and generated reports.
+models/*
+!models/.gitkeep
 results/
+reports/figures/*
+!reports/figures/.gitkeep
 
 .ipynb_checkpoints/
-*.log

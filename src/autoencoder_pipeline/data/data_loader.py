@@ -4,7 +4,7 @@ from pathlib import Path
 import ims
 import numpy as np
 
-from config import config
+from autoencoder_pipeline.config import config
 
 
 @dataclass

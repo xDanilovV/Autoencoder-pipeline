@@ -7,7 +7,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
-from config import config
+from autoencoder_pipeline.config import config
 
 
 def plot_encoding_decoding_steps(sample_idx=0):

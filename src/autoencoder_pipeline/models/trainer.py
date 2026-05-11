@@ -9,7 +9,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 
-from config import config
+from autoencoder_pipeline.config import config
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

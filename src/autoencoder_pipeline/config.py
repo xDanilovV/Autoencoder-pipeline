@@ -1,6 +1,8 @@
 """Configuration for the GC-IMS augmentation pipeline."""
-import torch
+import os
 from pathlib import Path
+
+import torch
 
 
 class Config:
@@ -8,10 +10,10 @@ class Config:
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # Paths
-    DATA_PATH = Path("data_fermentation")
+    DATA_PATH = Path(os.getenv("GCIMS_DATA_PATH", "data_fermentation"))
     SELECTED_CLASSES = None
-    RESULTS_PATH = Path("results")
-    MODEL_PATH = Path("models")  # For saving trained models
+    RESULTS_PATH = Path(os.getenv("GCIMS_RESULTS_PATH", "reports/figures"))
+    MODEL_PATH = Path(os.getenv("GCIMS_MODEL_PATH", "models"))  # For saving trained models
 
     # Create directories if they don't exist
     RESULTS_PATH.mkdir(exist_ok=True, parents=True)

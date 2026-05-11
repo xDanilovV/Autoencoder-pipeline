@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from typing import Dict
 from sklearn.preprocessing import LabelEncoder
-from config import config
+from autoencoder_pipeline.config import config
 from sklearn.decomposition import PCA
 
 

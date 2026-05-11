@@ -11,7 +11,7 @@ import numpy as np
 import pandas as pd
 from sklearn.decomposition import PCA
 
-from config import config
+from autoencoder_pipeline.config import config
 
 
 def evaluate_spectral_similarity(X_train, y_train, X_val, y_val, X_synth, y_synth):

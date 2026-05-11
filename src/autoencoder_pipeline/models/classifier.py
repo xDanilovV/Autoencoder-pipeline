@@ -21,7 +21,7 @@ from sklearn.metrics import (
     recall_score,
 )
 from sklearn.preprocessing import LabelEncoder
-from config import config
+from autoencoder_pipeline.config import config
 
 SEED = config.SEED
 
